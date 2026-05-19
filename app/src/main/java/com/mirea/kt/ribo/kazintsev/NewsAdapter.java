@@ -4,27 +4,37 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
+
+import java.util.ArrayList;
 import java.util.List;
 
 public class NewsAdapter extends RecyclerView.Adapter<NewsAdapter.ViewHolder> {
-    private List<NewsItem> newsList;
-    private OnNewsClickListener clickListener;
 
     public interface OnNewsClickListener {
         void onNewsClick(NewsItem item);
     }
 
+    private List<NewsItem> newsList;
+    private final OnNewsClickListener clickListener;
+
     public NewsAdapter(List<NewsItem> newsList, OnNewsClickListener clickListener) {
-        this.newsList = newsList;
+        this.newsList = new ArrayList<>(newsList);
         this.clickListener = clickListener;
+    }
+
+    public void updateItems(List<NewsItem> items) {
+        this.newsList = new ArrayList<>(items);
+        notifyDataSetChanged();
     }
 
     @NonNull
     @Override
     public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View v = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_news, parent, false);
+        View v = LayoutInflater.from(parent.getContext())
+                .inflate(R.layout.item_news, parent, false);
         return new ViewHolder(v);
     }
 
@@ -37,11 +47,15 @@ public class NewsAdapter extends RecyclerView.Adapter<NewsAdapter.ViewHolder> {
     }
 
     @Override
-    public int getItemCount() { return newsList.size(); }
+    public int getItemCount() {
+        return newsList.size();
+    }
 
     public static class ViewHolder extends RecyclerView.ViewHolder {
-        TextView title, date;
-        public ViewHolder(View itemView) {
+        TextView title;
+        TextView date;
+
+        public ViewHolder(@NonNull View itemView) {
             super(itemView);
             title = itemView.findViewById(R.id.tvNewsTitle);
             date = itemView.findViewById(R.id.tvNewsDate);

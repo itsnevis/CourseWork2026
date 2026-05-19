@@ -2,28 +2,40 @@ package com.mirea.kt.ribo.kazintsev;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ProgressBar;
+import android.widget.TextView;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.widget.SearchView;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
 public class NewsFragment extends Fragment implements NewsAdapter.OnNewsClickListener {
-    private RecyclerView rv;
-    private ProgressBar loader;
-    private String category;
 
-    // Метод для создания фрагмента с параметром (исправляет ошибку в MainActivity)
+    private static final String TAG = "NewsFragment";
+    private static final String ARG_CATEGORY = "category";
+
+    private RecyclerView recyclerView;
+    private ProgressBar progressBar;
+    private TextView tvEmpty;
+    private NewsAdapter adapter;
+    private String category;
+    private List<NewsItem> allLoadedItems = new ArrayList<>();
+
     public static NewsFragment newInstance(String category) {
         NewsFragment fragment = new NewsFragment();
         Bundle args = new Bundle();
-        args.putString("category", category);
+        args.putString(ARG_CATEGORY, category);
         fragment.setArguments(args);
         return fragment;
     }
@@ -32,46 +44,107 @@ public class NewsFragment extends Fragment implements NewsAdapter.OnNewsClickLis
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         if (getArguments() != null) {
-            category = getArguments().getString("category");
+            category = getArguments().getString(ARG_CATEGORY);
         }
     }
 
     @Nullable
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-        View view = inflater.inflate(R.layout.fragment_news, container, false);
-        rv = view.findViewById(R.id.rvNews);
-        loader = view.findViewById(R.id.loader);
-        rv.setLayoutManager(new LinearLayoutManager(getContext()));
+    public View onCreateView(@NonNull LayoutInflater inflater,
+                             @Nullable ViewGroup container,
+                             @Nullable Bundle savedInstanceState) {
+        return inflater.inflate(R.layout.fragment_news, container, false);
+    }
+
+    @Override
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+
+        recyclerView = view.findViewById(R.id.rvNews);
+        progressBar = view.findViewById(R.id.loader);
+        tvEmpty = view.findViewById(R.id.tvEmpty);
+        SearchView searchView = view.findViewById(R.id.searchView);
+
+        adapter = new NewsAdapter(new ArrayList<>(), this);
+        recyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
+        recyclerView.setAdapter(adapter);
+
+        if (searchView != null) {
+            searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+                @Override
+                public boolean onQueryTextSubmit(String query) {
+                    filterItems(query);
+                    return true;
+                }
+
+                @Override
+                public boolean onQueryTextChange(String newText) {
+                    filterItems(newText);
+                    return true;
+                }
+            });
+        }
+
         loadNews();
-        return view;
+    }
+
+    private void filterItems(String query) {
+        if (allLoadedItems.isEmpty()) return;
+        if (query == null || query.trim().isEmpty()) {
+            adapter.updateItems(allLoadedItems);
+            return;
+        }
+        String lower = query.toLowerCase();
+        List<NewsItem> filtered = new ArrayList<>();
+        for (NewsItem item : allLoadedItems) {
+            if (item.getTitle().toLowerCase().contains(lower)
+                    || item.getDescription().toLowerCase().contains(lower)) {
+                filtered.add(item);
+            }
+        }
+        adapter.updateItems(filtered);
+        updateEmptyState(filtered.isEmpty());
     }
 
     private void loadNews() {
-        if (loader != null) loader.setVisibility(View.VISIBLE);
-        new Thread(() -> {
-            // Передаем категорию в парсер
-            List<NewsItem> items = NetworkUtils.fetchNews(category != null ? category : "all");
+        if (progressBar != null) progressBar.setVisibility(View.VISIBLE);
+        if (tvEmpty != null) tvEmpty.setVisibility(View.GONE);
+        Log.d(TAG, "Загружаем новости. Категория: " + category);
 
-            // Сортировка для Варианта 69
+        new Thread(() -> {
+            List<NewsItem> items = NetworkUtils.fetchNews(category);
+
             if (items != null && items.size() > 1) {
                 Collections.sort(items, (n1, n2) -> n2.getPubDate().compareTo(n1.getPubDate()));
             }
 
-            if (getActivity() != null) {
-                getActivity().runOnUiThread(() -> {
-                    if (loader != null) loader.setVisibility(View.GONE);
-                    if (items != null && !items.isEmpty()) {
-                        rv.setAdapter(new NewsAdapter(items, this));
-                    }
-                });
-            }
+            if (getActivity() == null || !isAdded()) return;
+
+            getActivity().runOnUiThread(() -> {
+                if (progressBar != null) progressBar.setVisibility(View.GONE);
+
+                if (items == null || items.isEmpty()) {
+                    Log.w(TAG, "Новости не загружены");
+                    updateEmptyState(true);
+                } else {
+                    Log.d(TAG, "Загружено новостей: " + items.size());
+                    allLoadedItems = items;
+                    adapter.updateItems(items);
+                    updateEmptyState(false);
+                }
+            });
         }).start();
+    }
+
+    private void updateEmptyState(boolean isEmpty) {
+        if (tvEmpty == null) return;
+        tvEmpty.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
     }
 
     @Override
     public void onNewsClick(NewsItem item) {
-        Intent intent = new Intent(getContext(), NewsDetailActivity.class);
+        Log.d(TAG, "Нажата новость: " + item.getTitle());
+        Intent intent = new Intent(requireContext(), NewsDetailActivity.class);
         intent.putExtra("title", item.getTitle());
         intent.putExtra("content", item.getDescription());
         intent.putExtra("link", item.getLink());
