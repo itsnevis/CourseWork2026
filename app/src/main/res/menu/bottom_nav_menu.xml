@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/nav_politics"
+        android:icon="@android:drawable/ic_menu_myplaces"
+        android:title="Политика" />
+    <item
+        android:id="@+id/nav_society"
+        android:icon="@android:drawable/ic_menu_agenda"
+        android:title="Общество" />
+    <item
+        android:id="@+id/nav_sport"
+        android:icon="@android:drawable/ic_menu_compass"
+        android:title="Спорт" />
+</menu>

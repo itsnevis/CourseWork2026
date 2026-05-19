@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">CourseWork2026</string>
+    <string name="app_name">КУРСАЧ</string>
     <string name="auth_title">Вход в приложение</string>
     <string name="login_hint">Логин</string>
     <string name="password_hint">Пароль</string>
     <string name="group_hint">Группа</string>
     <string name="btn_login_text">Войти</string>
-    <string name="author_info">Разработчик: Твое Имя, группа РИБО-04-24</string>
+    <string name="author_info">Разработчик: Казинцев Максим Андреевич, группа РИБО-04-24</string>
     <string name="auth_error">Ошибка авторизации</string>
 </resources>
