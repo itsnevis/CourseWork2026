@@ -61,7 +61,7 @@ public class NetworkUtils {
     }
 
     // -----------------------------------------------------------------------
-    // Загрузка полного текста статьи по URL (для экрана деталей)
+    // Загрузка полного текста статьи по URL
     // -----------------------------------------------------------------------
     public static String fetchArticleContent(String articleUrl) {
         if (articleUrl == null || articleUrl.isEmpty()) return "";
@@ -91,17 +91,19 @@ public class NetworkUtils {
         }
     }
 
-    /**
-     * Вырезает основной текст статьи из HTML.
-     * Ищет типичные блоки контента lenta.ru / других новостных сайтов.
-     */
     private static String extractArticleText(String html) {
         if (html == null || html.isEmpty()) return "";
 
-        // Пробуем вырезать блок с основным текстом по типичным классам
+        // ШАГ 1: Удаляем мусорные блоки до поиска контента
+        html = removeJunkBlocks(html);
+
+        // ШАГ 2: Ищем основной блок по CSS-классам lenta.ru
         String[] contentMarkers = {
                 "class=\"topic-body__content\"",
+                "class=\"topic-body\"",
                 "class=\"article__text\"",
+                "class=\"article-body\"",
+                "class=\"article__content\"",
                 "class=\"news-text\"",
                 "class=\"b-text\"",
                 "class=\"entry-content\"",
@@ -110,45 +112,115 @@ public class NetworkUtils {
 
         for (String marker : contentMarkers) {
             String extracted = extractBetweenTags(html, marker);
-            if (extracted.length() > 100) {
-                return stripHtmlFully(extracted);
+            if (extracted.length() > 150) {
+                String result = stripHtmlFully(extracted);
+                if (result.length() > 100) {
+                    Log.d(TAG, "Найден контент по маркеру: " + marker);
+                    return cleanupText(result);
+                }
             }
         }
 
-        // Фоллбэк — просто убираем весь HTML
-        // Берём кусок после </head> чтобы убрать мета-теги
+        // ШАГ 3: Фоллбэк — берём body целиком
+        Log.w(TAG, "Маркеры не найдены, используем фоллбэк");
         int bodyStart = html.indexOf("<body");
         if (bodyStart == -1) bodyStart = 0;
         String body = html.substring(bodyStart);
         String plain = stripHtmlFully(body);
-
-        // Обрезаем до разумной длины
-        if (plain.length() > 3000) plain = plain.substring(0, 3000) + "...";
-        return plain;
+        return cleanupText(plain);
     }
 
-    /** Находит тег с нужным атрибутом и возвращает его содержимое */
+    /**
+     * Очищает итоговый текст от мусора в начале и конце:
+     * - хлебные крошки, erid-коды, метаданные — в начале
+     * - "Что думаете?", cookie-уведомления, реклама — в конце
+     */
+    private static String cleanupText(String text) {
+        if (text == null || text.isEmpty()) return "";
+
+        // --- Обрезаем конец: убираем мусор после маркеров ---
+        String[] endMarkers = {
+                "Что думаете?",
+                "На сайте используются cookie",
+                "Продолжая использовать сайт",
+                "Подписывайтесь на нас",
+                "Читайте также",
+                "ЧИТАЙТЕ ТАКЖЕ",
+                "Смотрите также",
+                "erid:",
+                "Реклама. "
+        };
+        for (String marker : endMarkers) {
+            int idx = text.indexOf(marker);
+            if (idx > 100) { // оставляем хотя бы 100 символов
+                text = text.substring(0, idx).trim();
+            }
+        }
+
+        // --- Обрезаем начало: пропускаем короткие "параграфы" (метаданные) ---
+        // Разбиваем на абзацы и ищем первый длинный (>=80 символов)
+        String[] paragraphs = text.split("\n\n");
+        int startIndex = 0;
+        for (int i = 0; i < paragraphs.length; i++) {
+            String p = paragraphs[i].trim();
+            if (p.length() >= 80) {
+                startIndex = i;
+                break;
+            }
+        }
+
+        // Собираем текст начиная с первого длинного абзаца
+        if (startIndex > 0) {
+            StringBuilder sb = new StringBuilder();
+            for (int i = startIndex; i < paragraphs.length; i++) {
+                if (sb.length() > 0) sb.append("\n\n");
+                sb.append(paragraphs[i].trim());
+            }
+            text = sb.toString();
+        }
+
+        // Ограничиваем длину
+        if (text.length() > 5000) text = text.substring(0, 5000) + "...";
+        return text.trim();
+    }
+
+    /**
+     * Удаляет блоки, которые точно не содержат текст статьи.
+     */
+    private static String removeJunkBlocks(String html) {
+        return html
+                .replaceAll("(?is)<nav[^>]*>.*?</nav>", "")
+                .replaceAll("(?is)<header[^>]*>.*?</header>", "")
+                .replaceAll("(?is)<footer[^>]*>.*?</footer>", "")
+                .replaceAll("(?is)<aside[^>]*>.*?</aside>", "")
+                .replaceAll("(?is)<script[^>]*>.*?</script>", "")
+                .replaceAll("(?is)<style[^>]*>.*?</style>", "")
+                .replaceAll("(?is)<noscript[^>]*>.*?</noscript>", "")
+                .replaceAll("(?is)<[^>]*(class|id)=\"[^\"]*\\bad\\b[^\"]*\"[^>]*>.*?</[a-z]+>", "")
+                .replaceAll("(?is)<[^>]*(class|id)=\"[^\"]*banner[^\"]*\"[^>]*>.*?</[a-z]+>", "")
+                .replaceAll("(?is)<[^>]*(class|id)=\"[^\"]*social[^\"]*\"[^>]*>.*?</[a-z]+>", "")
+                .replaceAll("(?is)<[^>]*(class|id)=\"[^\"]*related[^\"]*\"[^>]*>.*?</[a-z]+>", "")
+                .replaceAll("(?is)<[^>]*(class|id)=\"[^\"]*recommend[^\"]*\"[^>]*>.*?</[a-z]+>", "")
+                .replaceAll("(?is)<[^>]*(class|id)=\"[^\"]*cookie[^\"]*\"[^>]*>.*?</[a-z]+>", "");
+    }
+
     private static String extractBetweenTags(String html, String marker) {
         try {
             int markerPos = html.indexOf(marker);
             if (markerPos == -1) return "";
 
-            // Находим начало открывающего тега (идём назад от маркера)
             int tagStart = html.lastIndexOf("<", markerPos);
             if (tagStart == -1) return "";
 
-            // Определяем имя тега
-            int nameEnd = html.indexOf(" ", tagStart + 1);
+            int nameEnd  = html.indexOf(" ", tagStart + 1);
             int nameEnd2 = html.indexOf(">", tagStart + 1);
             if (nameEnd == -1 || nameEnd2 < nameEnd) nameEnd = nameEnd2;
             if (nameEnd == -1) return "";
             String tagName = html.substring(tagStart + 1, nameEnd).trim();
 
-            // Находим конец открывающего тега
             int openEnd = html.indexOf(">", markerPos);
             if (openEnd == -1) return "";
 
-            // Ищем соответствующий закрывающий тег (учитываем вложенность)
             String closeTag = "</" + tagName;
             int depth = 1;
             int pos = openEnd + 1;
@@ -234,7 +306,7 @@ public class NetworkUtils {
             XmlPullParser parser = factory.newPullParser();
             parser.setInput(new StringReader(xml));
 
-            boolean inItem = false;
+            boolean inItem   = false;
             String currentTag = null;
             StringBuilder buf = new StringBuilder();
 
@@ -285,8 +357,8 @@ public class NetworkUtils {
                                 NewsItem item = new NewsItem(
                                         title,
                                         description != null ? description : "",
-                                        link != null ? link : "",
-                                        pubDate != null ? pubDate : "");
+                                        link        != null ? link        : "",
+                                        pubDate     != null ? pubDate     : "");
                                 item.setCategory(category != null ? category : "");
                                 items.add(item);
                             }

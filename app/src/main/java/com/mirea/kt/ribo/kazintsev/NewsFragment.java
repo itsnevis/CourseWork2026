@@ -61,8 +61,8 @@ public class NewsFragment extends Fragment implements NewsAdapter.OnNewsClickLis
         super.onViewCreated(view, savedInstanceState);
 
         recyclerView = view.findViewById(R.id.rvNews);
-        progressBar = view.findViewById(R.id.loader);
-        tvEmpty = view.findViewById(R.id.tvEmpty);
+        progressBar  = view.findViewById(R.id.loader);
+        tvEmpty      = view.findViewById(R.id.tvEmpty);
         SearchView searchView = view.findViewById(R.id.searchView);
 
         adapter = new NewsAdapter(new ArrayList<>(), this);
@@ -83,6 +83,12 @@ public class NewsFragment extends Fragment implements NewsAdapter.OnNewsClickLis
                     return true;
                 }
             });
+
+            // Сброс при очистке поля поиска
+            searchView.setOnCloseListener(() -> {
+                filterItems("");
+                return false;
+            });
         }
 
         loadNews();
@@ -90,11 +96,14 @@ public class NewsFragment extends Fragment implements NewsAdapter.OnNewsClickLis
 
     private void filterItems(String query) {
         if (allLoadedItems.isEmpty()) return;
+
         if (query == null || query.trim().isEmpty()) {
             adapter.updateItems(allLoadedItems);
+            showEmpty(false);
             return;
         }
-        String lower = query.toLowerCase();
+
+        String lower = query.toLowerCase().trim();
         List<NewsItem> filtered = new ArrayList<>();
         for (NewsItem item : allLoadedItems) {
             if (item.getTitle().toLowerCase().contains(lower)
@@ -102,20 +111,27 @@ public class NewsFragment extends Fragment implements NewsAdapter.OnNewsClickLis
                 filtered.add(item);
             }
         }
+
         adapter.updateItems(filtered);
-        updateEmptyState(filtered.isEmpty());
+        // Показываем "не найдено" только если список пуст,
+        // но RecyclerView всегда остаётся видимым
+        if (tvEmpty != null) {
+            tvEmpty.setVisibility(filtered.isEmpty() ? View.VISIBLE : View.GONE);
+        }
     }
 
     private void loadNews() {
         if (progressBar != null) progressBar.setVisibility(View.VISIBLE);
-        if (tvEmpty != null) tvEmpty.setVisibility(View.GONE);
+        if (tvEmpty != null)     tvEmpty.setVisibility(View.GONE);
         Log.d(TAG, "Загружаем новости. Категория: " + category);
 
         new Thread(() -> {
             List<NewsItem> items = NetworkUtils.fetchNews(category);
 
+            // Сортировка по дате (новые сначала)
             if (items != null && items.size() > 1) {
-                Collections.sort(items, (n1, n2) -> n2.getPubDate().compareTo(n1.getPubDate()));
+                Collections.sort(items,
+                        (n1, n2) -> n2.getPubDate().compareTo(n1.getPubDate()));
             }
 
             if (getActivity() == null || !isAdded()) return;
@@ -125,29 +141,33 @@ public class NewsFragment extends Fragment implements NewsAdapter.OnNewsClickLis
 
                 if (items == null || items.isEmpty()) {
                     Log.w(TAG, "Новости не загружены");
-                    updateEmptyState(true);
+                    showEmpty(true);
                 } else {
                     Log.d(TAG, "Загружено новостей: " + items.size());
                     allLoadedItems = items;
                     adapter.updateItems(items);
-                    updateEmptyState(false);
+                    showEmpty(false);
                 }
             });
         }).start();
     }
 
-    private void updateEmptyState(boolean isEmpty) {
-        if (tvEmpty == null) return;
-        tvEmpty.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
+    /** Показывает/скрывает сообщение "Новости не найдены".
+     *  RecyclerView намеренно НЕ скрываем — это ломает поиск. */
+    private void showEmpty(boolean isEmpty) {
+        if (tvEmpty != null) {
+            tvEmpty.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
+        }
     }
 
     @Override
     public void onNewsClick(NewsItem item) {
         Log.d(TAG, "Нажата новость: " + item.getTitle());
         Intent intent = new Intent(requireContext(), NewsDetailActivity.class);
-        intent.putExtra("title", item.getTitle());
+        intent.putExtra("title",   item.getTitle());
         intent.putExtra("content", item.getDescription());
-        intent.putExtra("link", item.getLink());
+        intent.putExtra("link",    item.getLink());
+        intent.putExtra("date",    item.getPubDate());
         startActivity(intent);
     }
 }
