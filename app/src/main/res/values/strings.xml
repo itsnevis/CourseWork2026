@@ -8,7 +8,7 @@
     <string name="btn_login_text">Войти</string>
     <string name="default_group">RIBO-04-24</string>
     <string name="author_info">Разработчик: Казинцев Максим Андреевич, группа РИБО-04-24</string>
-    <string name="search_hint">Поиск новостей...</string>
+    <string name="search_hint">Поиск новостей…</string>
     <string name="no_news">Новости не найдены</string>
     <string name="error_network">Ошибка сети: </string>
     <string name="error_auth">Ошибка авторизации</string>
@@ -19,4 +19,11 @@
     <string name="error_empty_password">Введите пароль</string>
     <string name="error_short_password">Пароль слишком короткий</string>
     <string name="error_empty_group">Введите номер группы</string>
+    <string name="category_politics">Политика</string>
+    <string name="category_society">Общество</string>
+    <string name="category_sport">Спорт</string>
+    <string name="btn_share_text">Поделиться</string>
+    <string name="share_chooser_title">Поделиться через:</string>
+    <string name="variant_prefix">Вариант: </string>
+    <string name="btn_go_to_main">Приступить</string>
 </resources>

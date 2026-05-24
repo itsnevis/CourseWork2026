@@ -19,22 +19,25 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.textfield.TextInputEditText;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 public class NewsFragment extends Fragment implements NewsAdapter.OnNewsClickListener {
 
-    private static final String TAG = "NewsFragment";
+    private static final String TAG          = "NewsFragment";
     private static final String ARG_CATEGORY = "category";
 
-    private RecyclerView recyclerView;
-    private ProgressBar progressBar;
-    private TextView tvEmpty;
-    private TextInputEditText etSearch;
-    private NewsAdapter adapter;
-    private String category;
-    private List<NewsItem> allLoadedItems = new ArrayList<>();
+    private RecyclerView       recyclerView;
+    private ProgressBar        progressBar;
+    private TextView           tvEmpty;
+    private TextInputEditText  etSearch;
+    private NewsAdapter        adapter;
+    private String             category;
+    private List<NewsItem>     allLoadedItems = new ArrayList<>();
 
     public static NewsFragment newInstance(String category) {
         NewsFragment fragment = new NewsFragment();
@@ -74,16 +77,11 @@ public class NewsFragment extends Fragment implements NewsAdapter.OnNewsClickLis
         recyclerView.setAdapter(adapter);
 
         etSearch.addTextChangedListener(new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-
-            @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
                 filterItems(s.toString());
             }
-
-            @Override
-            public void afterTextChanged(Editable s) {}
+            @Override public void afterTextChanged(Editable s) {}
         });
 
         loadNews();
@@ -98,11 +96,11 @@ public class NewsFragment extends Fragment implements NewsAdapter.OnNewsClickLis
             return;
         }
 
-        String lower = query.toLowerCase().trim();
+        String lowerQuery = query.toLowerCase().trim();
         List<NewsItem> filtered = new ArrayList<>();
         for (NewsItem item : allLoadedItems) {
-            if (item.getTitle().toLowerCase().contains(lower)
-                    || item.getDescription().toLowerCase().contains(lower)) {
+            if (item.getTitle().toLowerCase().contains(lowerQuery)
+                    || item.getDescription().toLowerCase().contains(lowerQuery)) {
                 filtered.add(item);
             }
         }
@@ -120,8 +118,18 @@ public class NewsFragment extends Fragment implements NewsAdapter.OnNewsClickLis
             List<NewsItem> items = NetworkUtils.fetchNews(category);
 
             if (items != null && items.size() > 1) {
-                Collections.sort(items,
-                        (a, b) -> b.getPubDate().compareTo(a.getPubDate()));
+                final SimpleDateFormat rssDateFormat =
+                        new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss Z", Locale.ENGLISH);
+                Collections.sort(items, (a, b) -> {
+                    try {
+                        Date dateA = rssDateFormat.parse(a.getPubDate());
+                        Date dateB = rssDateFormat.parse(b.getPubDate());
+                        if (dateA != null && dateB != null) return dateB.compareTo(dateA);
+                    } catch (Exception e) {
+                        Log.w(TAG, "Не удалось разобрать дату: " + e.getMessage());
+                    }
+                    return b.getPubDate().compareTo(a.getPubDate());
+                });
             }
 
             if (getActivity() == null || !isAdded()) return;

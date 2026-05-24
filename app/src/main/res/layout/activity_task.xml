@@ -25,5 +25,5 @@
         android:id="@+id/btnGoToMain"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Приступить" />
+        android:text="@string/btn_go_to_main" />
 </LinearLayout>

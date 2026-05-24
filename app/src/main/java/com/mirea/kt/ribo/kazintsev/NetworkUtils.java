@@ -23,16 +23,20 @@ public class NetworkUtils {
 
     private static final String TAG = "NetworkUtils";
 
-    private static final String URL_NEWS    = "https://aif.ru/rss/news.php";
-    private static final String URL_SPORT   = "https://aif.ru/rss/google_sport";
-    private static final String URL_ALL     = "https://aif.ru/rss/googlearticles";
+    public static final String CATEGORY_POLITICS = "Политика";
+    public static final String CATEGORY_SOCIETY  = "Общество";
+    public static final String CATEGORY_SPORT    = "Спорт";
+
+    private static final String URL_NEWS  = "https://aif.ru/rss/news.php";
+    private static final String URL_SPORT = "https://aif.ru/rss/google_sport";
+    private static final String URL_ALL   = "https://aif.ru/rss/googlearticles";
 
     private static final String USER_AGENT =
             "Mozilla/5.0 (Linux; Android 12; Pixel 6) "
                     + "AppleWebKit/537.36 (KHTML, like Gecko) "
                     + "Chrome/120.0.0.0 Mobile Safari/537.36";
 
-    private static final OkHttpClient client = new OkHttpClient.Builder()
+    private static final OkHttpClient httpClient = new OkHttpClient.Builder()
             .connectTimeout(20, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .followRedirects(true)
@@ -40,28 +44,26 @@ public class NetworkUtils {
             .build();
 
     public static List<NewsItem> fetchNews(String category) {
-        String url = resolveUrl(category);
+        String url = resolveUrlByCategory(category);
         Log.d(TAG, "fetchNews category='" + category + "' url=" + url);
 
-        List<NewsItem> items = fetchRssUrl(url);
+        List<NewsItem> items = fetchRssFromUrl(url);
 
         if (items.isEmpty() && !url.equals(URL_ALL)) {
             Log.w(TAG, "Категорийный URL пуст, пробуем общий фид");
-            items = fetchRssUrl(URL_ALL);
+            items = fetchRssFromUrl(URL_ALL);
         }
 
         Log.d(TAG, "fetchNews итого: " + items.size());
         return items;
     }
 
-    private static String resolveUrl(String category) {
+    private static String resolveUrlByCategory(String category) {
         if (category == null) return URL_ALL;
-        switch (category) {
-            case "Политика": return URL_NEWS;
-            case "Общество":  return URL_ALL;
-            case "Спорт":    return URL_SPORT;
-            default:         return URL_ALL;
-        }
+        if (CATEGORY_POLITICS.equals(category)) return URL_NEWS;
+        if (CATEGORY_SPORT.equals(category))    return URL_SPORT;
+        if (CATEGORY_SOCIETY.equals(category))  return URL_ALL;
+        return URL_ALL;
     }
 
     public static String fetchArticleContent(String articleUrl) {
@@ -74,7 +76,7 @@ public class NetworkUtils {
                     .header("Accept-Language", "ru-RU,ru;q=0.9")
                     .build();
 
-            Response response = client.newCall(request).execute();
+            Response response = httpClient.newCall(request).execute();
             if (!response.isSuccessful()) {
                 Log.e(TAG, "fetchArticleContent HTTP " + response.code());
                 return "";
@@ -87,7 +89,7 @@ public class NetworkUtils {
         }
     }
 
-    private static List<NewsItem> fetchRssUrl(String url) {
+    private static List<NewsItem> fetchRssFromUrl(String url) {
         List<NewsItem> result = new ArrayList<>();
         try {
             Request request = new Request.Builder()
@@ -97,7 +99,7 @@ public class NetworkUtils {
                     .header("Accept-Language", "ru-RU,ru;q=0.9")
                     .build();
 
-            Response response = client.newCall(request).execute();
+            Response response = httpClient.newCall(request).execute();
             Log.d(TAG, "HTTP " + response.code() + " <- " + url);
 
             if (!response.isSuccessful()) {
@@ -110,11 +112,11 @@ public class NetworkUtils {
             if (xml.length() < 50) return result;
 
             Log.d(TAG, "Начало XML: " + xml.substring(0, Math.min(300, xml.length())));
-            result = parseRss(xml);
+            result = parseRssXml(xml);
             Log.d(TAG, "Распарсено: " + result.size() + " новостей");
 
         } catch (Exception e) {
-            Log.e(TAG, "fetchRssUrl error: " + e.getMessage(), e);
+            Log.e(TAG, "fetchRssFromUrl error: " + e.getMessage(), e);
         }
         return result;
     }
@@ -142,18 +144,18 @@ public class NetworkUtils {
 
         String preview = new String(bytes, 0, Math.min(bytes.length, 500),
                 StandardCharsets.ISO_8859_1);
-        Pattern p = Pattern.compile("encoding=[\"']([^\"']+)[\"']", Pattern.CASE_INSENSITIVE);
-        Matcher m = p.matcher(preview);
-        if (m.find()) {
+        Pattern pattern = Pattern.compile("encoding=[\"']([^\"']+)[\"']", Pattern.CASE_INSENSITIVE);
+        Matcher matcher = pattern.matcher(preview);
+        if (matcher.find()) {
             try {
-                return Charset.forName(m.group(1));
+                return Charset.forName(matcher.group(1));
             } catch (Exception ignored) {}
         }
 
         return StandardCharsets.UTF_8;
     }
 
-    private static List<NewsItem> parseRss(String xml) {
+    private static List<NewsItem> parseRssXml(String xml) {
         List<NewsItem> items = new ArrayList<>();
         try {
             XmlPullParserFactory factory = XmlPullParserFactory.newInstance();
@@ -163,7 +165,7 @@ public class NetworkUtils {
 
             boolean inItem = false;
             String currentTag = null;
-            StringBuilder buf = new StringBuilder();
+            StringBuilder buffer = new StringBuilder();
             String title = null, description = null, link = null,
                     pubDate = null, category = null;
 
@@ -172,7 +174,7 @@ public class NetworkUtils {
                 switch (event) {
                     case XmlPullParser.START_TAG:
                         currentTag = parser.getName();
-                        buf.setLength(0);
+                        buffer.setLength(0);
                         if ("item".equalsIgnoreCase(currentTag)) {
                             inItem = true;
                             title = description = link = pubDate = category = null;
@@ -181,19 +183,19 @@ public class NetworkUtils {
 
                     case XmlPullParser.TEXT:
                     case XmlPullParser.CDSECT:
-                        if (inItem) buf.append(parser.getText());
+                        if (inItem) buffer.append(parser.getText());
                         break;
 
                     case XmlPullParser.END_TAG:
                         if (inItem && currentTag != null) {
-                            String text = buf.toString().trim();
+                            String text = buffer.toString().trim();
                             switch (currentTag.toLowerCase()) {
                                 case "title":
                                     if (title == null && !text.isEmpty()) title = text;
                                     break;
                                 case "description":
                                     if (description == null && !text.isEmpty())
-                                        description = stripHtml(text);
+                                        description = stripHtmlTags(text);
                                     break;
                                 case "link":
                                     if (link == null && !text.isEmpty()) link = text;
@@ -219,21 +221,21 @@ public class NetworkUtils {
                             inItem = false;
                         }
                         currentTag = null;
-                        buf.setLength(0);
+                        buffer.setLength(0);
                         break;
                 }
                 event = parser.next();
             }
         } catch (Exception e) {
-            Log.e(TAG, "parseRss error: " + e.getMessage(), e);
+            Log.e(TAG, "parseRssXml error: " + e.getMessage(), e);
         }
         return items;
     }
 
     private static String extractArticleText(String html) {
         if (html == null || html.isEmpty()) return "";
-        html = removeJunkBlocks(html);
-        String[] markers = {
+        html = removeJunkHtmlBlocks(html);
+        String[] contentMarkers = {
                 "class=\"article__body\"",
                 "class=\"article__text\"",
                 "class=\"article-text\"",
@@ -242,19 +244,19 @@ public class NetworkUtils {
                 "class=\"news-text\"",
                 "itemprop=\"articleBody\""
         };
-        for (String marker : markers) {
-            String block = extractBlock(html, marker);
+        for (String marker : contentMarkers) {
+            String block = extractHtmlBlock(html, marker);
             if (block.length() > 150) {
-                String text = stripHtml(block);
-                if (text.length() > 100) return cleanText(text);
+                String text = stripHtmlTags(block);
+                if (text.length() > 100) return cleanArticleText(text);
             }
         }
         int bodyStart = html.indexOf("<body");
         if (bodyStart == -1) bodyStart = 0;
-        return cleanText(stripHtml(html.substring(bodyStart)));
+        return cleanArticleText(stripHtmlTags(html.substring(bodyStart)));
     }
 
-    private static String extractBlock(String html, String marker) {
+    private static String extractHtmlBlock(String html, String marker) {
         try {
             int markerPos = html.indexOf(marker);
             if (markerPos == -1) return "";
@@ -270,7 +272,7 @@ public class NetworkUtils {
             int depth = 1, pos = openEnd + 1;
             String closeTag = "</" + tagName.toLowerCase();
             while (depth > 0 && pos < html.length()) {
-                int nextOpen = html.toLowerCase().indexOf("<" + tagName.toLowerCase(), pos);
+                int nextOpen  = html.toLowerCase().indexOf("<" + tagName.toLowerCase(), pos);
                 int nextClose = html.toLowerCase().indexOf(closeTag, pos);
                 if (nextClose == -1) break;
                 if (nextOpen != -1 && nextOpen < nextClose) {
@@ -283,12 +285,12 @@ public class NetworkUtils {
                 }
             }
         } catch (Exception e) {
-            Log.e(TAG, "extractBlock: " + e.getMessage());
+            Log.e(TAG, "extractHtmlBlock: " + e.getMessage());
         }
         return "";
     }
 
-    private static String removeJunkBlocks(String html) {
+    private static String removeJunkHtmlBlocks(String html) {
         return html
                 .replaceAll("(?is)<nav[^>]*>.*?</nav>", "")
                 .replaceAll("(?is)<header[^>]*>.*?</header>", "")
@@ -299,7 +301,7 @@ public class NetworkUtils {
                 .replaceAll("(?is)<noscript[^>]*>.*?</noscript>", "");
     }
 
-    private static String stripHtml(String html) {
+    private static String stripHtmlTags(String html) {
         if (html == null) return "";
         return html
                 .replaceAll("(?is)<script[^>]*>.*?</script>", " ")
@@ -319,7 +321,7 @@ public class NetworkUtils {
                 .trim();
     }
 
-    private static String cleanText(String text) {
+    private static String cleanArticleText(String text) {
         if (text == null || text.isEmpty()) return "";
         String[] endMarkers = {
                 "Что думаете?", "Читайте также", "ЧИТАЙТЕ ТАКЖЕ",

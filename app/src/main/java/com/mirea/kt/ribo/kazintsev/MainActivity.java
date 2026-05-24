@@ -12,21 +12,20 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        BottomNavigationView nav = findViewById(R.id.bottom_navigation);
+        BottomNavigationView bottomNav = findViewById(R.id.bottom_navigation);
 
-        // По умолчанию открываем Политику
-        loadFragment(NewsFragment.newInstance("Политика"));
+        loadFragment(NewsFragment.newInstance(NetworkUtils.CATEGORY_POLITICS));
 
-        nav.setOnItemSelectedListener(item -> {
+        bottomNav.setOnItemSelectedListener(item -> {
             Fragment selectedFragment = null;
             int id = item.getItemId();
 
             if (id == R.id.nav_politics) {
-                selectedFragment = NewsFragment.newInstance("Политика");
+                selectedFragment = NewsFragment.newInstance(NetworkUtils.CATEGORY_POLITICS);
             } else if (id == R.id.nav_society) {
-                selectedFragment = NewsFragment.newInstance("Общество");
+                selectedFragment = NewsFragment.newInstance(NetworkUtils.CATEGORY_SOCIETY);
             } else if (id == R.id.nav_sport) {
-                selectedFragment = NewsFragment.newInstance("Спорт");
+                selectedFragment = NewsFragment.newInstance(NetworkUtils.CATEGORY_SPORT);
             }
 
             if (selectedFragment != null) {

@@ -26,10 +26,6 @@ public class NewsAdapter extends RecyclerView.Adapter<NewsAdapter.ViewHolder> {
         this.clickListener = clickListener;
     }
 
-    /**
-     * Обновляет список с DiffUtil — RecyclerView не мигает,
-     * SearchView не теряет фокус.
-     */
     public void updateItems(List<NewsItem> items) {
         final List<NewsItem> oldList = this.newsList;
         final List<NewsItem> newList = new ArrayList<>(items);
@@ -66,8 +62,8 @@ public class NewsAdapter extends RecyclerView.Adapter<NewsAdapter.ViewHolder> {
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         NewsItem item = newsList.get(position);
-        holder.title.setText(item.getTitle());
-        holder.date.setText(item.getPubDate());
+        holder.tvTitle.setText(item.getTitle());
+        holder.tvDate.setText(item.getPubDate());
         holder.itemView.setOnClickListener(v -> clickListener.onNewsClick(item));
     }
 
@@ -75,13 +71,13 @@ public class NewsAdapter extends RecyclerView.Adapter<NewsAdapter.ViewHolder> {
     public int getItemCount() { return newsList.size(); }
 
     public static class ViewHolder extends RecyclerView.ViewHolder {
-        TextView title;
-        TextView date;
+        TextView tvTitle;
+        TextView tvDate;
 
         public ViewHolder(@NonNull View itemView) {
             super(itemView);
-            title = itemView.findViewById(R.id.tvNewsTitle);
-            date  = itemView.findViewById(R.id.tvNewsDate);
+            tvTitle = itemView.findViewById(R.id.tvNewsTitle);
+            tvDate  = itemView.findViewById(R.id.tvNewsDate);
         }
     }
 }

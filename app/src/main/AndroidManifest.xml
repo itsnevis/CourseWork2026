@@ -13,7 +13,6 @@
         android:theme="@style/Theme.CourseWork2026"
         android:usesCleartextTraffic="true"
         android:networkSecurityConfig="@xml/network_security_config">
-        
 
         <activity android:name=".AuthActivity" android:exported="true">
             <intent-filter>
@@ -23,6 +22,8 @@
         </activity>
         <activity android:name=".TaskActivity" />
         <activity android:name=".MainActivity" />
-        <activity android:name=".NewsDetailActivity" />
+        <activity
+            android:name=".NewsDetailActivity"
+            android:parentActivityName=".MainActivity" />
     </application>
 </manifest>

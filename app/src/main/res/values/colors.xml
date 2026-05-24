@@ -2,4 +2,7 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    <color name="news_date_text">#888888</color>
+    <color name="news_divider">#DDDDDD</color>
+    <color name="news_content_text">#222222</color>
 </resources>
