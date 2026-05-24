@@ -6,6 +6,7 @@ import android.view.ViewGroup;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.ArrayList;
@@ -25,9 +26,33 @@ public class NewsAdapter extends RecyclerView.Adapter<NewsAdapter.ViewHolder> {
         this.clickListener = clickListener;
     }
 
+    /**
+     * Обновляет список с DiffUtil — RecyclerView не мигает,
+     * SearchView не теряет фокус.
+     */
     public void updateItems(List<NewsItem> items) {
-        this.newsList = new ArrayList<>(items);
-        notifyDataSetChanged();
+        final List<NewsItem> oldList = this.newsList;
+        final List<NewsItem> newList = new ArrayList<>(items);
+
+        DiffUtil.DiffResult diffResult = DiffUtil.calculateDiff(new DiffUtil.Callback() {
+            @Override public int getOldListSize() { return oldList.size(); }
+            @Override public int getNewListSize() { return newList.size(); }
+
+            @Override
+            public boolean areItemsTheSame(int oldPos, int newPos) {
+                return oldList.get(oldPos).getLink()
+                        .equals(newList.get(newPos).getLink());
+            }
+
+            @Override
+            public boolean areContentsTheSame(int oldPos, int newPos) {
+                return oldList.get(oldPos).getTitle()
+                        .equals(newList.get(newPos).getTitle());
+            }
+        });
+
+        this.newsList = newList;
+        diffResult.dispatchUpdatesTo(this);
     }
 
     @NonNull
@@ -47,9 +72,7 @@ public class NewsAdapter extends RecyclerView.Adapter<NewsAdapter.ViewHolder> {
     }
 
     @Override
-    public int getItemCount() {
-        return newsList.size();
-    }
+    public int getItemCount() { return newsList.size(); }
 
     public static class ViewHolder extends RecyclerView.ViewHolder {
         TextView title;
@@ -58,7 +81,7 @@ public class NewsAdapter extends RecyclerView.Adapter<NewsAdapter.ViewHolder> {
         public ViewHolder(@NonNull View itemView) {
             super(itemView);
             title = itemView.findViewById(R.id.tvNewsTitle);
-            date = itemView.findViewById(R.id.tvNewsDate);
+            date  = itemView.findViewById(R.id.tvNewsDate);
         }
     }
 }

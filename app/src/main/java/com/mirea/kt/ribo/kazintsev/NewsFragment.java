@@ -2,6 +2,8 @@ package com.mirea.kt.ribo.kazintsev;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -11,10 +13,11 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.appcompat.widget.SearchView;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.google.android.material.textfield.TextInputEditText;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -28,6 +31,7 @@ public class NewsFragment extends Fragment implements NewsAdapter.OnNewsClickLis
     private RecyclerView recyclerView;
     private ProgressBar progressBar;
     private TextView tvEmpty;
+    private TextInputEditText etSearch;
     private NewsAdapter adapter;
     private String category;
     private List<NewsItem> allLoadedItems = new ArrayList<>();
@@ -63,33 +67,24 @@ public class NewsFragment extends Fragment implements NewsAdapter.OnNewsClickLis
         recyclerView = view.findViewById(R.id.rvNews);
         progressBar  = view.findViewById(R.id.loader);
         tvEmpty      = view.findViewById(R.id.tvEmpty);
-        SearchView searchView = view.findViewById(R.id.searchView);
+        etSearch     = view.findViewById(R.id.etSearch);
 
         adapter = new NewsAdapter(new ArrayList<>(), this);
         recyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
         recyclerView.setAdapter(adapter);
 
-        if (searchView != null) {
-            searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
-                @Override
-                public boolean onQueryTextSubmit(String query) {
-                    filterItems(query);
-                    return true;
-                }
+        etSearch.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
 
-                @Override
-                public boolean onQueryTextChange(String newText) {
-                    filterItems(newText);
-                    return true;
-                }
-            });
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                filterItems(s.toString());
+            }
 
-            // Сброс при очистке поля поиска
-            searchView.setOnCloseListener(() -> {
-                filterItems("");
-                return false;
-            });
-        }
+            @Override
+            public void afterTextChanged(Editable s) {}
+        });
 
         loadNews();
     }
@@ -99,7 +94,7 @@ public class NewsFragment extends Fragment implements NewsAdapter.OnNewsClickLis
 
         if (query == null || query.trim().isEmpty()) {
             adapter.updateItems(allLoadedItems);
-            showEmpty(false);
+            setEmptyVisible(false);
             return;
         }
 
@@ -112,52 +107,48 @@ public class NewsFragment extends Fragment implements NewsAdapter.OnNewsClickLis
             }
         }
 
+        Log.d(TAG, "Поиск '" + query + "': найдено " + filtered.size());
         adapter.updateItems(filtered);
-        // Показываем "не найдено" только если список пуст,
-        // но RecyclerView всегда остаётся видимым
-        if (tvEmpty != null) {
-            tvEmpty.setVisibility(filtered.isEmpty() ? View.VISIBLE : View.GONE);
-        }
+        setEmptyVisible(filtered.isEmpty());
     }
 
     private void loadNews() {
-        if (progressBar != null) progressBar.setVisibility(View.VISIBLE);
-        if (tvEmpty != null)     tvEmpty.setVisibility(View.GONE);
+        setLoading(true);
         Log.d(TAG, "Загружаем новости. Категория: " + category);
 
         new Thread(() -> {
             List<NewsItem> items = NetworkUtils.fetchNews(category);
 
-            // Сортировка по дате (новые сначала)
             if (items != null && items.size() > 1) {
                 Collections.sort(items,
-                        (n1, n2) -> n2.getPubDate().compareTo(n1.getPubDate()));
+                        (a, b) -> b.getPubDate().compareTo(a.getPubDate()));
             }
 
             if (getActivity() == null || !isAdded()) return;
 
             getActivity().runOnUiThread(() -> {
-                if (progressBar != null) progressBar.setVisibility(View.GONE);
-
+                setLoading(false);
                 if (items == null || items.isEmpty()) {
                     Log.w(TAG, "Новости не загружены");
-                    showEmpty(true);
+                    setEmptyVisible(true);
                 } else {
-                    Log.d(TAG, "Загружено новостей: " + items.size());
+                    Log.d(TAG, "Загружено: " + items.size());
                     allLoadedItems = items;
                     adapter.updateItems(items);
-                    showEmpty(false);
+                    setEmptyVisible(false);
                 }
             });
         }).start();
     }
 
-    /** Показывает/скрывает сообщение "Новости не найдены".
-     *  RecyclerView намеренно НЕ скрываем — это ломает поиск. */
-    private void showEmpty(boolean isEmpty) {
-        if (tvEmpty != null) {
-            tvEmpty.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
-        }
+    private void setLoading(boolean loading) {
+        if (progressBar != null)
+            progressBar.setVisibility(loading ? View.VISIBLE : View.GONE);
+    }
+
+    private void setEmptyVisible(boolean visible) {
+        if (tvEmpty != null)
+            tvEmpty.setVisibility(visible ? View.VISIBLE : View.GONE);
     }
 
     @Override

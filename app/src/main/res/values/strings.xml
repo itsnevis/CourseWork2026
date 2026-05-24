@@ -1,11 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">КУРСАЧ</string>
+    <string name="app_name">Новости AIF</string>
     <string name="auth_title">Вход в приложение</string>
     <string name="login_hint">Логин</string>
     <string name="password_hint">Пароль</string>
     <string name="group_hint">Группа</string>
     <string name="btn_login_text">Войти</string>
+    <string name="default_group">RIBO-04-24</string>
     <string name="author_info">Разработчик: Казинцев Максим Андреевич, группа РИБО-04-24</string>
-    <string name="auth_error">Ошибка авторизации</string>
+    <string name="search_hint">Поиск новостей...</string>
+    <string name="no_news">Новости не найдены</string>
+    <string name="error_network">Ошибка сети: </string>
+    <string name="error_auth">Ошибка авторизации</string>
+    <string name="error_auth_prefix">Ошибка: </string>
+    <string name="error_parse">Ошибка обработки ответа сервера</string>
+    <string name="error_empty_login">Введите логин</string>
+    <string name="error_short_login">Логин слишком короткий</string>
+    <string name="error_empty_password">Введите пароль</string>
+    <string name="error_short_password">Пароль слишком короткий</string>
+    <string name="error_empty_group">Введите номер группы</string>
 </resources>
